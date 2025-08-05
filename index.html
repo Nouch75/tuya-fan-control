@@ -2,10 +2,67 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Contrôle Ventilateur Tuya</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2em;
+      background-color: #f0f0f0;
+    }
+    button {
+      font-size: 1.5em;
+      padding: 1em 2em;
+      margin: 1em;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    .on {
+      background-color: #4caf50;
+      color: white;
+    }
+    .off {
+      background-color: #f44336;
+      color: white;
+    }
+    #status {
+      margin-top: 2em;
+      font-size: 1.2em;
+    }
+  </style>
 </head>
 <body>
-  <h1>Bienvenue sur le contrôle du ventilateur Tuya</h1>
+  <h1>Contrôle du Ventilateur Tuya</h1>
+
+  <button class="on" onclick="turnOn()">Allumer</button>
+  <button class="off" onclick="turnOff()">Éteindre</button>
+
+  <div id="status"></div>
+
+  <script>
+    const backendUrl = 'https://tuya-fan-control.onrender.com';
+
+    async function turnOn() {
+      try {
+        const res = await fetch(`${backendUrl}/fan/on`, { method: 'POST' });
+        const data = await res.json();
+        document.getElementById('status').innerText = '✅ Ventilateur allumé.';
+      } catch (e) {
+        document.getElementById('status').innerText = '❌ Erreur lors de l’allumage.';
+      }
+    }
+
+    async function turnOff() {
+      try {
+        const res = await fetch(`${backendUrl}/fan/off`, { method: 'POST' });
+        const data = await res.json();
+        document.getElementById('status').innerText = '🛑 Ventilateur éteint.';
+      } catch (e) {
+        document.getElementById('status').innerText = '❌ Erreur lors de l’extinction.';
+      }
+    }
+  </script>
 </body>
 </html>
