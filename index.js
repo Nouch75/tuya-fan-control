@@ -1,59 +1,126 @@
-const express = require("express");
-const axios = require("axios");
-const crypto = require("crypto");
+import express from 'express';
+import dotenv from 'dotenv';
+import axios from 'axios';
+import cors from 'cors';
+import crypto from 'crypto';
+
+// Chargement du fichier .env
+dotenv.config();
+
 const app = express();
+app.use(cors());
 app.use(express.json());
 
-const TUYA_ACCESS_ID = process.env.TUYA_ACCESS_ID;
-const TUYA_ACCESS_SECRET = process.env.TUYA_ACCESS_SECRET;
-const DEVICE_ID = process.env.TUYA_DEVICE_ID;
+// Variables d’environnement
+const {
+  TUYA_ACCESS_ID,
+  TUYA_ACCESS_SECRET,
+  TUYA_DEVICE_ID,
+  TUYA_REGION,
+  PORT = 3000
+} = process.env;
 
-let accessToken = null;
+const REGION_URL = {
+  eu: 'https://openapi.tuyaeu.com',
+  us: 'https://openapi.tuyaus.com',
+  cn: 'https://openapi.tuyacn.com'
+};
 
-async function getAccessToken() {
-  const t = Date.now();
-  const signStr = TUYA_ACCESS_ID + t;
-  const sign = crypto
-    .createHmac("sha256", TUYA_ACCESS_SECRET)
-    .update(signStr)
-    .digest("hex")
-    .toUpperCase();
+const API_URL = REGION_URL[TUYA_REGION];
 
-  const res = await axios.get("https://openapi.tuyaeu.com/v1.0/token?grant_type=1", {
-    headers: {
-      "client_id": TUYA_ACCESS_ID,
-      "sign": sign,
-      "t": t,
-      "sign_method": "HMAC-SHA256",
-    },
-  });
+let accessToken = '';
+let expiresIn = 0;
 
-  accessToken = res.data.result.access_token;
+// === Fonction pour obtenir un token Tuya ===
+async function getToken() {
+  try {
+    const now = Date.now();
+    const signStr = TUYA_ACCESS_ID + now;
+    const sign = crypto
+      .createHmac('sha256', TUYA_ACCESS_SECRET)
+      .update(signStr)
+      .digest('hex')
+      .toUpperCase();
+
+    const res = await axios.get(`${API_URL}/v1.0/token?grant_type=1`, {
+      headers: {
+        'client_id': TUYA_ACCESS_ID,
+        sign,
+        t: now,
+        sign_method: 'HMAC-SHA256'
+      }
+    });
+
+    accessToken = res.data.result.access_token;
+    expiresIn = now + res.data.result.expire_time;
+
+    console.log('✅ Token Tuya récupéré avec succès');
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération du token Tuya :');
+    console.error(error.response?.data || error.message);
+    throw new Error("Impossible d'obtenir un token Tuya.");
+  }
 }
 
-app.get("/power/:state", async (req, res) => {
-  const state = req.params.state === "on";
-  if (!accessToken) await getAccessToken();
+// === Fonction pour envoyer une commande au ventilateur ===
+async function sendCommand(code, value) {
+  if (!accessToken || Date.now() > expiresIn) {
+    await getToken();
+  }
 
-  await axios.post(
-    `https://openapi.tuyaeu.com/v1.0/devices/${DEVICE_ID}/commands`,
-    {
-      commands: [
-        {
-          code: "switch",
-          value: state,
-        },
-      ],
-    },
+  const now = Date.now();
+  const signStr = TUYA_ACCESS_ID + accessToken + now;
+  const sign = crypto
+    .createHmac('sha256', TUYA_ACCESS_SECRET)
+    .update(signStr)
+    .digest('hex')
+    .toUpperCase();
+
+  const command = {
+    commands: [
+      {
+        code,
+        value
+      }
+    ]
+  };
+
+  return axios.post(
+    `${API_URL}/v1.0/devices/${TUYA_DEVICE_ID}/commands`,
+    command,
     {
       headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "client_id": TUYA_ACCESS_ID,
-      },
+        'client_id': TUYA_ACCESS_ID,
+        'access_token': accessToken,
+        sign,
+        t: now,
+        sign_method: 'HMAC-SHA256'
+      }
     }
   );
+}
 
-  res.send(`Ventilateur ${state ? "allumé" : "éteint"}`);
+// === Routes ===
+
+app.post('/fan/on', async (req, res) => {
+  try {
+    await sendCommand('switch', true);
+    res.send({ status: 'on' });
+  } catch (e) {
+    res.status(500).send({ error: e.message });
+  }
 });
 
-app.listen(3000, () => console.log("Serveur Tuya prêt sur le port 3000"));
+app.post('/fan/off', async (req, res) => {
+  try {
+    await sendCommand('switch', false);
+    res.send({ status: 'off' });
+  } catch (e) {
+    res.status(500).send({ error: e.message });
+  }
+});
+
+// === Lancement du serveur ===
+app.listen(PORT, () => {
+  console.log(`🚀 Serveur Tuya Fan Backend démarré sur le port ${PORT}`);
+});

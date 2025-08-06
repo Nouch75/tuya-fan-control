@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Contrôle Ventilateur Tuya</title>
+  <title>Contrôle Lumière Tuya</title>
   <style>
     body {
       font-family: sans-serif;
@@ -34,7 +34,7 @@
   </style>
 </head>
 <body>
-  <h1>Contrôle du Ventilateur Tuya</h1>
+  <h1>Contrôle de la Lumière Tuya</h1>
 
   <button class="on" onclick="turnOn()">Allumer</button>
   <button class="off" onclick="turnOff()">Éteindre</button>
@@ -46,21 +46,23 @@
 
     async function turnOn() {
       try {
-        const res = await fetch(`${backendUrl}/fan/on`, { method: 'POST' });
+        const res = await fetch(`${backendUrl}/light/on`, { method: 'POST' });
         const data = await res.json();
-        document.getElementById('status').innerText = '✅ Ventilateur allumé.';
+        document.getElementById('status').innerText = '💡 Lumière allumée.';
       } catch (e) {
         document.getElementById('status').innerText = '❌ Erreur lors de l’allumage.';
+        console.error(e);
       }
     }
 
     async function turnOff() {
       try {
-        const res = await fetch(`${backendUrl}/fan/off`, { method: 'POST' });
+        const res = await fetch(`${backendUrl}/light/off`, { method: 'POST' });
         const data = await res.json();
-        document.getElementById('status').innerText = '🛑 Ventilateur éteint.';
+        document.getElementById('status').innerText = '💤 Lumière éteinte.';
       } catch (e) {
         document.getElementById('status').innerText = '❌ Erreur lors de l’extinction.';
+        console.error(e);
       }
     }
   </script>
